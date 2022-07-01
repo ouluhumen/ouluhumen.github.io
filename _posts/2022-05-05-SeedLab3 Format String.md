@@ -34,7 +34,7 @@ echo %s | nc 10.9.0.5 9090
 
 栈的分布图:
 
-<img src="stack.jpg" style="zoom:80%;" />
+<img src="https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012317059.jpg" alt="stack" style="zoom:80%;" />
 
 ### Task 2.A: Stack Data
 
@@ -46,7 +46,7 @@ echo AAAA-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%
 
 `printf`中占位符`%p`的作用是将所指向的数据地址以十六进制的形式输出。所以当`printf`解析到第一个%p时会从栈顶指针esp+0x4的位置开始打印出栈上的数据，之后依次类推：
 
-![image-20220421200232373](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421200232373.png)
+![image-20220421200232373](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012317592.png)
 
 可以发现第一个`%p`打印出来的就是程序中输出的`target variable’s value: 0x11223344`，在第64个偏移处打印了`0x41414141`即输入的AAAA。说明输入的payload被保存在距离esp第64个偏移处（即buffer的起始地址）。
 
@@ -94,7 +94,7 @@ cat badfile | nc 10.9.0.5 9090
 
 成功输出secret message：
 
-![image-20220421201731894](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421201731894.png)
+![image-20220421201731894](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012317712.png)
 
 
 
@@ -120,7 +120,7 @@ s = "%.8x"*63 + "%n"	# s = "%.8x"*63 +"%64$n" 也可以
 
 测试成功，`target`的值被改成了0x200，因为在`%n`之前打印了4位宽target变量地址+4位宽的abcd+8位宽的`%.8x`*63，即$0x4+0x4+0x8\times63=0x200$。
 
-![image-20220421202710777](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421202710777.png)
+![image-20220421202710777](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012317394.png)
 
 
 
@@ -135,7 +135,7 @@ s = "%.8x"*62 + "%.19976x" + "%n"
 
 成功将值改成0x5000：
 
-![image-20220421205113015](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421205113015.png)
+![image-20220421205113015](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012317687.png)
 
 
 
@@ -185,13 +185,13 @@ with open('badfile', 'wb') as f:
 
 成功输出：
 
-![image-20220421215702222](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421215702222.png)
+![image-20220421215702222](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318863.png)
 
 
 
 ## Task 4: Inject Malicious Code into the Server Program
 
-<img src="C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421223013262.png" alt="image-20220421223013262" style="zoom:80%;" />
+<img src="https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318052.png" alt="image-20220421223013262" style="zoom:80%;" />
 
 ### Question 1
 
@@ -208,13 +208,13 @@ A:
     printf("Frame Pointer (inside myprintf):      0x%.8x\n", (unsigned int) framep);
 ```
 
-![image-20220421224647416](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421224647416.png)
+![image-20220421224647416](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318004.png)
 
 所以$return\ address=ebp+4=0xffffd2d8+4=0xffffd2dc$（即距离buffer起始位置53个偏移）
 
 ③处是main中`buf[]`的起始地址，程序直接打印出了地址：`0xffffd3b0`
 
-![image-20220421223449305](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421223449305.png)
+![image-20220421223449305](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318930.png)
 
 
 
@@ -230,7 +230,7 @@ A：根据Task2.A可以知道需要填充64个`%x`才能移动到③。
 
 (容器重启了，改变了地址，所以会和上面地址不一样)
 
-![image-20220430134807059](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430134807059.png)
+![image-20220430134807059](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318850.png)
 
 **思路：把`myprintf`的return address改成shellcode的地址**
 
@@ -247,7 +247,7 @@ A：根据Task2.A可以知道需要填充64个`%x`才能移动到③。
 
   打印start，获得`shellcode`的起始位置是：$buf\ addr+1364=0xffffd4a0+1364=0xffffd9f4$
 
-  ![image-20220430135300950](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430135300950.png)
+  ![image-20220430135300950](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318811.png)
 
 - 要把$0xffffd3cc$改成$0xffffd9f4$，数字比较大，像上面task3.c一样分成两步：
   - $0xffff-4-4-4-62\times8=65027$，所以`s = "%.8x"*62 + "%.65027x" + "%hn"`
@@ -297,7 +297,7 @@ with open('badfile', 'wb') as f:
 
 测试成功：
 
-![image-20220430142449060](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430142449060.png)
+![image-20220430142449060](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318403.png)
 
 #### reverse shell
 
@@ -309,9 +309,9 @@ with open('badfile', 'wb') as f:
 
 测试成功：
 
-![image-20220430143426157](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430143426157.png)
+![image-20220430143426157](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318623.png)
 
-![image-20220430143526901](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430143526901.png)
+![image-20220430143526901](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318172.png)
 
 
 
@@ -321,12 +321,12 @@ with open('badfile', 'wb') as f:
 >
 > 因为之前将地址放在format string前面，在64位的机器中，由于用户空间的地址高两位都是0，当`printf()`遇到地址中的`\0`时停止解析format string。
 >
-> ![image-20220430165913977](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430165913977.png)
+> ![image-20220430165913977](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012318589.png)
 >
 
 `echo hello | nc 10.9.0.6 9090`：
 
-![image-20220430145620327](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430145620327.png)
+![image-20220430145620327](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319652.png)
 
 首先构造payload判断偏移，offset=34，说明buffer的起始位置在距离esp第34个偏移处
 
@@ -334,7 +334,7 @@ with open('badfile', 'wb') as f:
 echo AAAAAAAA-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p | nc 10.9.0.6 9090
 ```
 
-![image-20220430145803224](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430145803224.png)
+![image-20220430145803224](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319292.png)
 
 （同样的程序，比起32位机器上偏移少了很多，猜测是因为32位中函数的参数也放在栈上，64位中参数放在寄存器中）
 
@@ -357,7 +357,7 @@ echo AAAAAAAA-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-
   print('%#x'%shell_code_addr)
   ```
 
-  ![image-20220430154413985](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430154413985.png)
+  ![image-20220430154413985](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319359.png)
 
 - `myprintf`的return address$=ebp+8=0x00007fffffffe318$
 
@@ -393,7 +393,7 @@ echo AAAAAAAA-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-
       print("fmt:"+str(len(fmt)))
       ```
   
-      ![image-20220430162148326](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430162148326.png)
+      ![image-20220430162148326](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319154.png)
   
       $\lceil 41/8\rceil=6$，所以地址分别放在40(34+6)、41、42个参数的位置。format string：
   
@@ -466,7 +466,7 @@ with open('badfile', 'wb') as f:
 
 运行截图：
 
-![image-20220430163644239](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430163644239.png)
+![image-20220430163644239](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319123.png)
 
 
 
@@ -476,13 +476,13 @@ with open('badfile', 'wb') as f:
 
 gcc warning：将一个非常量作为format string，且没有格式化参数
 
-![image-20220430170207744](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430170207744.png)
+![image-20220430170207744](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319045.png)
 
 修复漏洞：将`printf(msg);`改成`printf("%s",msg);`，这样`printf`的第一个参数format string固定下来，只会以`%s`的形式解析msg。重新编译后没有报错：
 
-![image-20220430170555801](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430170555801.png)
+![image-20220430170555801](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319574.png)
 
 尝试攻击修改target的值，修改失败。
 
-![image-20220430171333825](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430171333825.png)
+![image-20220430171333825](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012319553.png)
 
