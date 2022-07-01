@@ -2,7 +2,7 @@
 layout:     post   				    
 title:      SeedLab1 Buffer Overflow + Return to libc				
 subtitle:   
-date:       2022-04-10 				
+date:       2022-04-07 				
 author:     慕念 						
 header-img: img/seed_labs_b.png	
 catalog: true 						
