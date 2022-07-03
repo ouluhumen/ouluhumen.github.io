@@ -1,6 +1,6 @@
 ---
 layout:     post   				    
-title:      【邱锡鹏】chap1_warmup-numpy 练习题				
+title:      【邱锡鹏】chap1 warmup-numpy 练习题				
 subtitle:   
 date:       2022-02-07 				
 author:     慕念 						
@@ -54,6 +54,7 @@ print(b[0, 0], b[0, 1], b[1, 1])
 a = np.zeros((3, 3), dtype=int)
 b = np.ones((4, 5), dtype=int)
 # c = np.eye(4, 4, dtype=int)
+
 c = np.identity(4, dtype=int)
 d = np.random.randint(1, 10, dtype=int, size=(3, 2))
 print(a)
@@ -115,6 +116,7 @@ a = np.array([[1, 2, 3],
             [7, 8, 9], 
             [10, 11, 12]])
 b = np.array([0, 2, 0, 1])  #列
+
 print(a[np.arange(4), b])
 ```
 
@@ -163,6 +165,7 @@ print(x * y)
 print(np.multiply(x, y))
 
 # 矩阵乘法
+
 print(np.dot(x, y))
 
 x1 = np.array([[1, 1, 1], [2, 2, 2]])
@@ -200,6 +203,7 @@ print(np.dot(x, y))
 ```python
 print( np.sum(x) )
 print( np.sum(x, axis = 0))  # 求列和
+
 print( np.sum(x, axis = 1))  # 求行和
 ```
 
@@ -212,6 +216,7 @@ print( np.sum(x, axis = 1))  # 求行和
 ```python
 print(np.mean(x))
 print(np.mean(x, axis=0))   # 求列平均
+
 print(np.mean(x, axis=1))   # 求行平均
 ```
 
@@ -236,6 +241,7 @@ print(np.exp(x))
 ```python
 print(np.argmax(x))
 print(np.argmax(x, axis=0))    # 求列最大值索引
+
 print(np.argmax(x, axis=1))    # 求行最大值索引
 ```
 
