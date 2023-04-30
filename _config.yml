@@ -1,9 +1,9 @@
 # Site settings
-title: 为了让这个世界变得更好
-SEOTitle: 欧陆虎门的个人Blog
+title: Oluhumen's Blog
+SEOTitle: 欧陆虎门的个人博客
 header-img: img/china-641112.png
 email: 431817410@qq.com
-description: "这是一点学习的记录"
+description: "为了让这个世界变得更好"
 keyword: "ctfshow"
 url: "https://ouluhumen.github.io"          # your host, for absolute URL
 baseurl: ""      # for example, '/blog' if your blog hosted on 'host/blog'
